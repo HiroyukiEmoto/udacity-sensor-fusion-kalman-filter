@@ -18,13 +18,13 @@ UKF::UKF() {
   x_ = VectorXd(5);
 
   // initial covariance matrix
-  P_ = MatrixXd(5, 5);
+  P_ = MatrixXd::Identity(5, 5);
 
   // Process noise standard deviation longitudinal acceleration in m/s^2
-  std_a_ = 0.2;
+  std_a_ = 3;
 
   // Process noise standard deviation yaw acceleration in rad/s^2
-  std_yawdd_ = 0.2;
+  std_yawdd_ = M_PI;
   
   /**
    * DO NOT MODIFY m easurement noise values below.
@@ -59,7 +59,7 @@ UKF::UKF() {
   is_initialized_ = false;
 
   n_x_ = 5;
-  // P_ *= 0.25;
+  P_ *= 0.25;
 
   n_aug_ = 7;
   Xsig_pred_ = MatrixXd(n_x_, 2 * n_aug_ + 1);
@@ -81,7 +81,7 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
   /**
    * TODO: Complete this function! Make sure you switch between lidar and radar
    * measurements.
-   */
+  */ 
   long delta_t = meas_package.timestamp_ - time_us_;
   time_us_ = meas_package.timestamp_;
 
@@ -120,11 +120,12 @@ void UKF::Prediction(double delta_t) {
    * TODO: Complete this function! Estimate the object's location. 
    * Modify the state vector, x_. Predict sigma points, the state, 
    * and the state covariance matrix.
-   */   
+  */    
 
   VectorXd x_aug = VectorXd(n_aug_);
   MatrixXd P_aug = MatrixXd(n_aug_, n_aug_);
   MatrixXd Xsig_aug = MatrixXd(n_aug_, 2 * n_aug_ + 1);
+  // VectorXd x_diff = VectorXd(n_x_);
 
   x_aug.head(n_x_) = x_;
   x_aug(5) = 0;
@@ -181,7 +182,7 @@ void UKF::Prediction(double delta_t) {
 
   for (int i = 0; i < 2 * n_aug_ + 1; ++i)
   {
-    x_ = x_ + weights_(i) * Xsig_aug.col(i);
+    x_ = x_ + weights_(i) * Xsig_pred_.col(i);
   }
 
   for (int i = 0; i < 2 * n_aug_ + 1; ++i)
@@ -202,7 +203,7 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
    * about the object's position. Modify the state vector, x_, and 
    * covariance, P_.
    * You can also calculate the lidar NIS, if desired.
-   */
+  */
   int n_z = 2;
   MatrixXd H = MatrixXd(n_z, n_x_);
 
@@ -229,6 +230,7 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
   P_ = (I - K * H) * P_;
 
   double epsilon = y.transpose() * S.inverse() * y;
+
 }
 
 void UKF::UpdateRadar(MeasurementPackage meas_package) {
@@ -237,7 +239,7 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
    * about the object's position. Modify the state vector, x_, and 
    * covariance, P_.
    * You can also calculate the radar NIS, if desired.
-   */
+  */
   int n_z = 3;
   MatrixXd Zsig = MatrixXd(n_z, 2 * n_aug_ + 1);
   VectorXd z_pred = VectorXd(n_z);
@@ -250,9 +252,11 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
     double v = Xsig_pred_(2, i);
     double yaw = Xsig_pred_(3, i);
 
+
+
     Zsig(0, i) = sqrt(px * px + py * py);
     Zsig(1, i) = atan2(py, px);
-    Zsig(2, i) = (px * cos(yaw) * v + py * sin(yaw) * v) / Zsig(0, i);
+    Zsig(2, i) = (px * cos(yaw) * v + py * sin(yaw) * v) / sqrt(px * px + py * py);
   }
 
   z_pred.fill(0.0);
@@ -309,4 +313,5 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   P_ = P_ - K * S * K.transpose();
 
   double epsilon = z_diff.transpose() * S.inverse() * z_diff;
+ 
 }
